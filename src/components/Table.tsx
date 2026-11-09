@@ -84,16 +84,28 @@ export function Table(props: TableProps) {
   // Keep the completed trick on the table for a moment before clearing it:
   // `holding` names the lastTrick currently being shown, and a timer releases it.
   const [holding, setHolding] = useState<PlayerView["lastTrick"]>(null);
+  const [collecting, setCollecting] = useState(false);
   const [seenTrick, setSeenTrick] = useState<PlayerView["lastTrick"]>(view.lastTrick);
   if (view.lastTrick !== seenTrick) {
     // "Adjust state when a prop changes" pattern: a new trick just completed, so hold it.
     setSeenTrick(view.lastTrick);
-    if (view.currentTrick.length === 0 && view.lastTrick) setHolding(view.lastTrick);
+    if (view.currentTrick.length === 0 && view.lastTrick) {
+      setHolding(view.lastTrick);
+      setCollecting(false);
+    }
   }
   useEffect(() => {
     if (!holding) return;
-    const id = setTimeout(() => setHolding(null), 1300);
-    return () => clearTimeout(id);
+    // Show the finished trick, then sweep the cards toward the winner and clear.
+    const collect = setTimeout(() => setCollecting(true), 900);
+    const clear = setTimeout(() => {
+      setHolding(null);
+      setCollecting(false);
+    }, 1300);
+    return () => {
+      clearTimeout(collect);
+      clearTimeout(clear);
+    };
   }, [holding]);
   const shownTrick: { plays: TrickPlay[]; winner: number | null } =
     view.currentTrick.length > 0
@@ -262,15 +274,26 @@ export function Table(props: TableProps) {
             const rel = (p.seat - me + n) % n;
             const off = trickOffset(rel, n);
             const won = shownTrick.winner === p.seat;
+            const sx = dir === "rtl" ? -1 : 1;
+            // Cards fly in from their player's side and, once the trick is decided, sweep to the winner.
+            const winnerOff =
+              shownTrick.winner !== null ? trickOffset((shownTrick.winner - me + n) % n, n) : off;
+            const vars = {
+              "--fx": `${sx * off.x * 7}px`,
+              "--fy": `${off.y * 7}px`,
+              "--tx": `${sx * winnerOff.x * 7}px`,
+              "--ty": `${winnerOff.y * 7}px`,
+            } as React.CSSProperties;
             return (
               <div
                 key={p.card}
-                className="absolute pop"
+                className={`absolute trick-card ${collecting ? "collect" : ""}`}
                 style={{
-                  transform: `translate(calc(-50% + ${dir === "rtl" ? -off.x : off.x}px), calc(-50% + ${off.y}px)) ${won ? "scale(1.12)" : ""}`,
+                  ...vars,
+                  transform: `translate(calc(-50% + ${sx * off.x}px), calc(-50% + ${off.y}px)) ${won ? "scale(1.12)" : ""}`,
                   zIndex: won ? 5 : 1,
                   transition: "transform 250ms ease",
-                  filter: won ? "drop-shadow(0 0 14px rgba(212,166,56,0.8))" : undefined,
+                  filter: won && !collecting ? "drop-shadow(0 0 14px rgba(212,166,56,0.8))" : undefined,
                 }}
               >
                 <Card
