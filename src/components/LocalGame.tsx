@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { CardId, Suit } from "@/game/cards";
 import { botChooseCard, botChooseDiscards, botChooseTrump, botDrawKeep } from "@/game/bot";
 import {
+  AUTO_NEXT_HAND_SECONDS,
   type GameState,
   type PlayerCount,
   chooseTrump,
@@ -79,6 +80,9 @@ export function LocalGame({ players, targetScore, name }: Props) {
         if (s.phase !== "playing" || !s.players[s.turn].isBot) return s;
         return playCard(s, s.turn, botChooseCard(viewFor(s, s.turn)));
       });
+    } else if (state.phase === "handEnd") {
+      // Show the result briefly, then deal the next hand on its own.
+      schedule(AUTO_NEXT_HAND_SECONDS * 1000, (s) => (s.phase === "handEnd" ? startHand(s) : s));
     }
     return () => {
       if (timer.current) clearTimeout(timer.current);

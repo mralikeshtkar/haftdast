@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type CardId, type Suit, SUITS, sortHand } from "@/game/cards";
-import { type PlayerView, type TrickPlay, rulesFor, teamOf } from "@/game/engine";
+import { AUTO_NEXT_HAND_SECONDS, type PlayerView, type TrickPlay, rulesFor, teamOf } from "@/game/engine";
 import { useI18n } from "@/i18n/context";
 import { Card, SUIT_SYMBOL, isRed } from "./Card";
 import { Frieze, Rosette, Star8 } from "./Ornament";
@@ -17,9 +17,9 @@ export interface TableProps {
   onNextHand: () => void;
   onRestart: () => void;
   onLeave: () => void;
-  /** Whether this client may advance to the next hand / restart (host in online games). */
+  /** Whether this client may skip the between-hands countdown (host in online games). */
   canAdvance: boolean;
-  /** Label of the game-over button (e.g. "Back to room" online). Defaults to "Play again". */
+  /** Label of the game-over button, shown to everyone (e.g. "Back to room" online). Defaults to "Play again". */
   restartLabel?: string;
   banner?: string | null;
 }
@@ -123,6 +123,20 @@ export function Table(props: TableProps) {
     const id = setTimeout(() => setGotCard(null), 1300);
     return () => clearTimeout(id);
   }, [gotCard]);
+
+  // Between hands: visible countdown to the automatic next deal.
+  const [countdown, setCountdown] = useState(AUTO_NEXT_HAND_SECONDS);
+  const [seenHandEnd, setSeenHandEnd] = useState<number | null>(null);
+  const handEndKey = view.phase === "handEnd" ? view.handNumber : null;
+  if (handEndKey !== seenHandEnd) {
+    setSeenHandEnd(handEndKey);
+    setCountdown(AUTO_NEXT_HAND_SECONDS);
+  }
+  useEffect(() => {
+    if (view.phase !== "handEnd") return;
+    const id = setInterval(() => setCountdown((c) => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(id);
+  }, [view.phase, view.handNumber]);
 
   const isMyTurn = view.phase === "playing" && view.turn === me;
   const discarding = view.phase === "discarding";
@@ -428,7 +442,8 @@ export function Table(props: TableProps) {
         </Overlay>
       )}
 
-      {(view.phase === "handEnd" || view.phase === "gameEnd") && view.lastHand && (
+      {/* Between hands: result + short countdown to the next deal */}
+      {view.phase === "handEnd" && view.lastHand && (
         <Overlay>
           <Rosette size={40} className="mx-auto mb-2 opacity-90" />
           {view.lastHand.kind === "draw" ? (
@@ -447,36 +462,43 @@ export function Table(props: TableProps) {
           <p className="text-sand mb-1">
             {view.lastHand.tricks.map((tr, i) => `${teamLabel(i)}: ${num(tr)}`).join(" · ")}
           </p>
-          {view.lastHand.points > 0 && (
-            <p className="mb-3 text-sm">{f(t.points, { n: num(view.lastHand.points) })}</p>
-          )}
-          <div className="flex gap-3 justify-center text-sm mb-4">
+          <div className="flex gap-3 justify-center text-sm mb-4 mt-2">
             {view.scores.map((s, i) => (
               <span key={i} className="panel !rounded-full px-3 py-1">
                 {teamLabel(i)} <b className="text-gold-light">{num(s)}</b>
               </span>
             ))}
           </div>
-          {view.phase === "gameEnd" ? (
-            <>
-              <h3 className="text-2xl font-black gold-text mb-3">
-                {t.gameOver} · {f(t.winner, { name: teamLabel(winnerTeam) })}
-              </h3>
-              {canAdvance ? (
-                <button className="btn btn-primary" onClick={onRestart}>
-                  {restartLabel ?? t.playAgain}
-                </button>
-              ) : (
-                <p className="text-sand text-sm">{t.waitingHost}</p>
-              )}
-            </>
-          ) : canAdvance ? (
-            <button className="btn btn-primary" onClick={onNextHand}>
+          <p className="text-sand text-sm">{f(t.nextHandIn, { n: num(countdown) })}</p>
+          {canAdvance && (
+            <button className="btn btn-ghost mt-2 !py-1.5 text-sm" onClick={onNextHand}>
               {t.nextHand}
             </button>
-          ) : (
-            <p className="text-sand text-sm">{t.waitingHost}</p>
           )}
+        </Overlay>
+      )}
+
+      {/* Game over: winner modal, stays until someone chooses to go back */}
+      {view.phase === "gameEnd" && (
+        <Overlay>
+          <Rosette size={56} className="mx-auto mb-2" />
+          <p className="text-sand text-sm">{t.champion}</p>
+          <h2 className="gold-text text-4xl font-black my-2 leading-tight">{teamLabel(winnerTeam)}</h2>
+          <div className="flex gap-3 justify-center text-sm my-4">
+            {view.scores.map((s, i) => (
+              <span key={i} className="panel !rounded-full px-3 py-1">
+                {teamLabel(i)} <b className="text-gold-light">{num(s)}</b>
+              </span>
+            ))}
+          </div>
+          <div className="flex flex-col gap-2">
+            <button className="btn btn-primary text-lg" onClick={onRestart}>
+              {restartLabel ?? t.playAgain}
+            </button>
+            <button className="btn btn-ghost" onClick={onLeave}>
+              {t.leave}
+            </button>
+          </div>
         </Overlay>
       )}
     </div>

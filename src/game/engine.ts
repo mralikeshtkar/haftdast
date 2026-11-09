@@ -117,6 +117,9 @@ export function rulesFor(players: PlayerCount): VariantRules {
 export const HAKEM_DISCARDS = 3;
 export const OPPONENT_DISCARDS = 2;
 
+/** Seconds the hand-result screen stays before the next hand starts automatically. */
+export const AUTO_NEXT_HAND_SECONDS = 3;
+
 export function teamOf(seat: number, players: PlayerCount): number {
   return players === 4 ? seat % 2 : seat;
 }

@@ -5,6 +5,7 @@ import type { Server, Socket } from "socket.io";
 import type { CardId, Suit } from "../game/cards";
 import { botChooseCard, botChooseDiscards, botChooseTrump, botDrawKeep } from "../game/bot";
 import {
+  AUTO_NEXT_HAND_SECONDS,
   type GameConfig,
   type GameState,
   type Player,
@@ -166,6 +167,7 @@ export class RoomManager {
       const room = this.roomOf(socket);
       if (!room?.state || room.state.phase !== "handEnd") return;
       if (socket.data.playerId !== room.hostId) return;
+      if (room.botTimer) clearTimeout(room.botTimer); // skip the countdown
       room.state = startHand(room.state);
       this.afterChange(room);
     });
@@ -184,8 +186,11 @@ export class RoomManager {
     socket.on("room:lobby", () => {
       const room = this.roomOf(socket);
       if (!room?.state) return;
-      if (socket.data.playerId !== room.hostId) return socket.emit("room:error", "notHost");
+      const isHost = socket.data.playerId === room.hostId;
+      // After the game is over anyone may bring the table back to the room; between hands only the host.
+      if (room.state.phase === "handEnd" && !isHost) return socket.emit("room:error", "notHost");
       if (room.state.phase !== "gameEnd" && room.state.phase !== "handEnd") return;
+      if (this.seatOf(socket, room) === null) return;
       if (room.botTimer) clearTimeout(room.botTimer);
       room.botTimer = null;
       room.state = null;
@@ -335,14 +340,15 @@ export class RoomManager {
         },
         afterTrick ? 1500 : 700,
       );
-    } else if (st.phase === "handEnd" && room.seats.every((s) => s.isBot || !s.socketId)) {
-      // Nobody human is around to press "next hand"; keep the game moving for a reconnect.
+    } else if (st.phase === "handEnd") {
+      // Show the hand result for a few seconds, then deal the next hand automatically
+      // (the host can skip ahead with game:nextHand).
       room.botTimer = setTimeout(() => {
         if (room.state?.phase === "handEnd") {
           room.state = startHand(room.state);
           this.afterChange(room);
         }
-      }, 5000);
+      }, AUTO_NEXT_HAND_SECONDS * 1000);
     }
   }
 
