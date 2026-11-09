@@ -68,8 +68,6 @@ interface CardProps {
   selected?: boolean;
   /** Lifted as part of a multi-card pick (no scaling). */
   picked?: boolean;
-  /** Card is of the trump suit: shows a gold corner. */
-  trump?: boolean;
   dim?: boolean;
   width?: number;
   onClick?: () => void;
@@ -83,7 +81,6 @@ export function Card({
   legal,
   selected,
   picked,
-  trump,
   dim,
   width,
   onClick,
@@ -103,7 +100,7 @@ export function Card({
   return (
     <button
       type="button"
-      className={`card ${legal ? "legal" : ""} ${selected ? "selected" : ""} ${picked ? "picked" : ""} ${trump ? "trump" : ""} ${dim ? "dim" : ""} ${className}`}
+      className={`card ${legal ? "legal" : ""} ${selected ? "selected" : ""} ${picked ? "picked" : ""} ${dim ? "dim" : ""} ${className}`}
       aria-pressed={selected || picked}
       style={{ ...vars, ...style }}
       onClick={legal ? onClick : undefined}
