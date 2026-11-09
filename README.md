@@ -55,5 +55,5 @@ The online mode needs a long-lived Node process (WebSockets), so it cannot run o
 *New → Blueprint*, pick the repo and deploy. The free plan sleeps after 15 minutes without traffic and takes
 about a minute to wake on the next visit; open the link a minute before you start playing.
 
-**Any VPS / PaaS:** `npm ci && npm run build` then `npm start` (reads `PORT`). Rooms live in memory on a single
+**Any VPS / PaaS:** `npm ci --include=dev && npm run build` then `npm start` (reads `PORT`). Rooms live in memory on a single
 instance; a restart clears them.
