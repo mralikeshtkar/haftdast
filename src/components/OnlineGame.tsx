@@ -19,7 +19,7 @@ export function OnlineGame({ code }: { code: string }) {
   const [view, setView] = useState<PlayerView | null>(null);
   const [error, setError] = useState<RoomError | null>(null);
   const [connected, setConnected] = useState(false);
-  const [fillWithBots, setFillWithBots] = useState(true);
+  const [fillWithBots, setFillWithBots] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const name = storedName.trim();

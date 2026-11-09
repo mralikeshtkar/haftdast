@@ -219,14 +219,19 @@ export function Table(props: TableProps) {
             </div>
           ))}
         </div>
-        <div className="panel px-3 py-1 flex items-center gap-1 min-w-12 justify-center !rounded-full">
+        <div className="panel px-3 py-1 flex items-center gap-2 min-w-12 justify-center !rounded-full border-gold/70">
           {view.trump ? (
-            <span
-              className={`suit text-2xl leading-none ${isRed(view.trump) ? "text-brick" : "text-parchment"}`}
-              title={t.suits[view.trump]}
-            >
-              {SUIT_SYMBOL[view.trump]}
-            </span>
+            <>
+              <span className="text-gold-light font-bold text-sm whitespace-nowrap">
+                {f(t.trumpIs, { suit: t.suits[view.trump] })}
+              </span>
+              <span
+                className={`suit text-2xl leading-none ${isRed(view.trump) ? "text-brick" : "text-parchment"}`}
+                title={t.suits[view.trump]}
+              >
+                {SUIT_SYMBOL[view.trump]}
+              </span>
+            </>
           ) : (
             <span className="text-sand text-xs">{t.trump}</span>
           )}
@@ -249,7 +254,7 @@ export function Table(props: TableProps) {
 
         {/* Trick */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-          {shownTrick.plays.map((p) => {
+          {shownTrick.plays.map((p, i) => {
             const rel = (p.seat - me + n) % n;
             const off = trickOffset(rel, n);
             const won = shownTrick.winner === p.seat;
@@ -264,7 +269,12 @@ export function Table(props: TableProps) {
                   filter: won ? "drop-shadow(0 0 14px rgba(212,166,56,0.8))" : undefined,
                 }}
               >
-                <Card card={p.card} width={Math.min(68, cardW)} />
+                <Card card={p.card} width={Math.min(68, cardW)} trump={p.card[0] === view.trump} />
+                {i === 0 && (
+                  <span className="absolute left-1/2 -translate-x-1/2 -bottom-5 text-[10px] font-bold text-turquoise bg-lapis-dark/80 rounded-full px-2 py-0.5 whitespace-nowrap">
+                    {t.led}
+                  </span>
+                )}
               </div>
             );
           })}
@@ -396,6 +406,7 @@ export function Table(props: TableProps) {
                       legal={selectable}
                       selected={isSel}
                       multi={discarding}
+                      trump={card[0] === view.trump}
                       fresh={card === gotCard}
                       dim={(isMyTurn && !selectable) || (discarding && myDiscards === 0)}
                       draggable={!discarding && selectable}
@@ -517,6 +528,7 @@ function HandCard({
   legal,
   selected,
   multi,
+  trump,
   fresh,
   dim,
   draggable,
@@ -531,6 +543,8 @@ function HandCard({
   selected: boolean;
   /** Multi-select mode (discarding): picked cards just lift, they don't grow or cover neighbours. */
   multi: boolean;
+  /** Card is of the trump suit. */
+  trump: boolean;
   /** Just arrived in the hand (draw phase): glows for a moment. */
   fresh: boolean;
   dim: boolean;
@@ -591,6 +605,7 @@ function HandCard({
         legal={legal}
         selected={selected && !drag && !multi}
         picked={selected && multi}
+        trump={trump}
         dim={dim}
         className={fresh ? "fresh" : ""}
       />
