@@ -1,0 +1,16 @@
+# Render blueprint: one free web service running the custom Next.js + Socket.IO server.
+# Deploy: push this repo to GitHub, then on render.com choose "New +" -> "Blueprint" and pick the repo.
+services:
+  - type: web
+    name: haftdast
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /fa
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"

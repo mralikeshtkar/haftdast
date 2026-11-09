@@ -1,0 +1,2 @@
+Card faces: vector-playing-cards (public domain), via https://github.com/hayeah/playing-cards-assets (MIT).
+Card back and ornaments: HaftDast project.
