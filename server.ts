@@ -9,7 +9,9 @@ import { RoomManager } from "./src/server/rooms";
 import type { ClientToServer, ServerToClient } from "./src/server/protocol";
 
 const dev = process.env.NODE_ENV !== "production";
-const hostname = process.env.HOSTNAME || "0.0.0.0";
+// Bind to all interfaces by default. (Not HOSTNAME: container platforms set it to the
+// container id, and binding to that makes the platform's proxy return 502.)
+const hostname = process.env.HOST || "0.0.0.0";
 const port = parseInt(process.env.PORT || "3000", 10);
 
 const app = next({ dev, hostname, port });
