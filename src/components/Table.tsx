@@ -24,6 +24,10 @@ export interface TableProps {
   banner?: string | null;
 }
 
+/** One fixed colour per seat, shared by everyone at the table: avatar ring + played-card border. */
+const SEAT_COLORS = ["#e3b341", "#2bb3a3", "#b48cff", "#ff8a65"];
+const seatColor = (seat: number) => SEAT_COLORS[seat % SEAT_COLORS.length];
+
 /** Position of each opponent relative to the viewer, as CSS classes. */
 function seatPosition(rel: number, n: number): string {
   if (n === 2) return "top-2 left-1/2 -translate-x-1/2";
@@ -269,7 +273,11 @@ export function Table(props: TableProps) {
                   filter: won ? "drop-shadow(0 0 14px rgba(212,166,56,0.8))" : undefined,
                 }}
               >
-                <Card card={p.card} width={Math.min(68, cardW)} />
+                <Card
+                  card={p.card}
+                  width={Math.min(68, cardW)}
+                  style={{ boxShadow: `0 0 0 3px ${seatColor(p.seat)}, 0 8px 18px rgb(0 0 0 / 0.35)` }}
+                />
               </div>
             );
           })}
@@ -629,7 +637,10 @@ function SeatBadge({ seat, view, name }: { seat: number; view: PlayerView; name:
   const isHakem = view.hakem === seat && view.phase !== "lobby";
   return (
     <div className="flex flex-col items-center text-xs min-w-14">
-      <div className={`avatar w-11 h-11 text-base ${isTurn ? "turn turn-ring" : ""}`}>
+      <div
+        className={`avatar w-11 h-11 text-base ${isTurn ? "turn turn-ring" : ""}`}
+        style={{ borderColor: seatColor(seat), borderWidth: 3 }}
+      >
         {name.slice(0, 1).toUpperCase()}
         {isHakem && (
           <span className="absolute -top-2 -right-2" title={t.hakem}>
