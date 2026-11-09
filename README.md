@@ -37,7 +37,7 @@ Other scripts: `npm run simulate` (plays 90 bot games across all variants and ch
 
 - **4 players**: two teams, 13 cards each, hakem picks trump after 5 cards, first team to 7 tricks wins the hand. 7–0 is *kot* (2 points), 3 points if the hakem's team is kotted. Hakem stays while their team wins, otherwise passes clockwise.
 - **3 players** (Pagat rules): one deuce removed, 17 cards each, everyone for themselves. Taking the first 7 tricks is a kot (2 points for the hakem, 3 for anyone else). Otherwise the hand ends as soon as one player's lead can no longer be matched; if the top two tie when the cards run out, the third player wins. Hakem stays on a win, otherwise passes to the next player.
-- **2 players** (Pagat rules): 5 cards each, hakem picks trump, then hakem discards 3 and the opponent 2. They alternate drawing from the 42-card stock, hakem first: keep the top card (the next is burned after a look) or burn it and take the next unseen. Each ends with 13 cards. First to 7 tricks. Winner becomes hakem.
+- **2 players** (Pagat rules): 5 cards each, hakem picks trump, then hakem discards 3 and the opponent 2. They alternate drawing from the 42-card stock, hakem first: keep the top card (the next is burned, unseen) or burn it and take the next unseen. Burned cards are never shown to anyone. Each ends with 13 cards. First to 7 tricks. Winner becomes hakem.
 
 ## بازی آنلاین بدون سرور / Play online without a server
 

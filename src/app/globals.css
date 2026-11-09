@@ -312,28 +312,6 @@ body {
     }
   }
 
-  /* The card that was burned during the draw: turns face-down and sinks away quietly. */
-  .burn-out {
-    animation: burn-out 620ms cubic-bezier(0.4, 0, 0.6, 1) forwards;
-    pointer-events: none;
-    transform-origin: 50% 50%;
-    backface-visibility: hidden;
-  }
-  @keyframes burn-out {
-    0% {
-      transform: perspective(600px) rotateY(0deg) translateY(0) scale(1);
-      opacity: 1;
-    }
-    55% {
-      transform: perspective(600px) rotateY(90deg) translateY(10px) scale(0.96);
-      opacity: 0.9;
-    }
-    100% {
-      transform: perspective(600px) rotateY(90deg) translateY(40px) scale(0.85);
-      opacity: 0;
-    }
-  }
-
   /* Trump picker */
   .deal-in {
     animation: deal-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;

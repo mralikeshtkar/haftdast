@@ -281,8 +281,9 @@ export function offeredCard(state: GameState): CardId | null {
 }
 
 /**
- * Draw decision: keep the offered top card (and burn the next one after seeing it),
- * or burn the offered card and take the next one, sight unseen. Two stock cards go per turn.
+ * Draw decision: keep the offered top card (the next one is burned, unseen), or burn
+ * the offered card and take the next one, sight unseen. Two stock cards go per turn.
+ * The burned card is recorded in state only; players never get to see it.
  */
 export function drawDecision(state: GameState, seat: number, keep: boolean): GameState {
   if (state.phase !== "drawing" || !state.draw) throw new Error("not drawing");
@@ -488,12 +489,16 @@ export interface PlayerView {
   handCounts: number[];
   /** 2 players: how many cards each seat still has to discard. */
   discardsNeeded: number[];
-  /** 2 players: draw phase as seen by this seat (offered card only on their turn). */
+  /**
+   * 2 players: draw phase as seen by this seat (offered card only on their turn).
+   * `lastKept` is the card this seat received on its previous draw turn; the burned
+   * card is never sent to clients.
+   */
   draw: {
     turn: number;
     offered: CardId | null;
     stock: number;
-    lastSeen: DrawSeen | null;
+    lastKept: CardId | null;
   } | null;
   currentTrick: TrickPlay[];
   leader: number;
@@ -523,7 +528,7 @@ export function viewFor(state: GameState, seat: number): PlayerView {
           turn: state.draw.turn,
           offered: state.draw.turn === seat ? offeredCard(state) : null,
           stock: state.deck.length,
-          lastSeen: state.draw.lastSeen[seat] ?? null,
+          lastKept: state.draw.lastSeen[seat]?.kept ?? null,
         }
       : null,
     currentTrick: state.currentTrick,

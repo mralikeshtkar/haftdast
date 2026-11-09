@@ -127,27 +127,18 @@ export function Table(props: TableProps) {
   }
 
   // After each of my draw decisions, the card I actually received glows in my hand for a moment.
-  const drawKey = view.draw?.lastSeen ? `${view.draw.lastSeen.kept}-${view.draw.lastSeen.burned}` : null;
+  const drawKey = view.draw?.lastKept ? `${view.draw.lastKept}-${view.draw.stock}` : null;
   const [seenDrawKey, setSeenDrawKey] = useState(drawKey);
   const [gotCard, setGotCard] = useState<CardId | null>(null);
-  const [burnedCard, setBurnedCard] = useState<CardId | null>(null);
   if (drawKey !== seenDrawKey) {
     setSeenDrawKey(drawKey);
-    if (drawKey && view.draw?.lastSeen) {
-      setGotCard(view.draw.lastSeen.kept);
-      setBurnedCard(view.draw.lastSeen.burned);
-    }
+    if (drawKey && view.draw?.lastKept) setGotCard(view.draw.lastKept);
   }
   useEffect(() => {
     if (!gotCard) return;
     const id = setTimeout(() => setGotCard(null), 1300);
     return () => clearTimeout(id);
   }, [gotCard]);
-  useEffect(() => {
-    if (!burnedCard) return;
-    const id = setTimeout(() => setBurnedCard(null), 560);
-    return () => clearTimeout(id);
-  }, [burnedCard]);
 
   // Between hands: visible countdown to the automatic next deal.
   const [countdown, setCountdown] = useState(AUTO_NEXT_HAND_SECONDS);
@@ -358,12 +349,6 @@ export function Table(props: TableProps) {
                 </span>
               </div>
               <div className="relative" style={{ width: 80, height: 80 * 1.452 }}>
-                {/* Ghost of the card that was just burned, flipping away */}
-                {burnedCard && (
-                  <div className="absolute inset-0 burn-out">
-                    <Card card={burnedCard} width={80} />
-                  </div>
-                )}
                 {myDraw && view.draw.offered && (
                   <div className="absolute inset-0 pop">
                     <Card card={view.draw.offered} width={80} />

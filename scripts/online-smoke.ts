@@ -78,6 +78,10 @@ async function main() {
   if (hv.handCounts.length !== playerCount || "hands" in hv || "deck" in hv) {
     throw new Error("view leaks state");
   }
+  // The burned stock card must never reach a client, in any shape.
+  for (const v of views.values()) {
+    if (JSON.stringify(v).includes("burned")) throw new Error("view leaks the burned card");
+  }
 
   // Host sends everyone back to the room lobby between hands.
   const backInLobby = new Promise<RoomInfo>((resolve) =>
