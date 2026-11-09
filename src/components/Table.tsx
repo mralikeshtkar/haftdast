@@ -468,29 +468,75 @@ export function Table(props: TableProps) {
         <Overlay>
           {view.hakem === me ? (
             <>
-              <h2 className="text-xl font-black text-gold-light mb-3">{t.chooseTrump}</h2>
-              <div className="flex gap-1 justify-center mb-4" dir="ltr">
-                {sortHand(view.hand, null).map((c) => (
-                  <Card key={c} card={c} width={54} />
-                ))}
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <Star8 size={16} />
+                <h2 className="text-2xl font-black gold-text">{t.chooseTrump}</h2>
+                <Star8 size={16} />
               </div>
-              <div className="grid grid-cols-4 gap-2">
+              <Frieze className="opacity-60 mb-3" />
+              {/* The hakem's first five cards, fanned and dealt in one by one */}
+              <div className="flex justify-center mb-5 pt-3" dir="ltr">
+                {sortHand(view.hand, null).map((c, i, arr) => {
+                  const mid = (arr.length - 1) / 2;
+                  const a = (i - mid) * 7;
+                  return (
+                    <div
+                      key={c}
+                      className="deal-in"
+                      style={{
+                        marginLeft: i ? -14 : 0,
+                        animationDelay: `${i * 70}ms`,
+                        transform: `rotate(${a}deg) translateY(${Math.abs(i - mid) * 5}px)`,
+                        transformOrigin: "50% 160%",
+                      }}
+                    >
+                      <Card card={c} width={64} />
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Suit medallions with how many of the five cards are in each suit */}
+              <div className="flex justify-center gap-3">
+                {SUITS.map((s, i) => {
+                  const count = view.hand.filter((c) => c[0] === s).length;
+                  return (
+                    <button
+                      key={s}
+                      className="suit-pick"
+                      style={{ animationDelay: `${350 + i * 70}ms` }}
+                      onClick={() => onChooseTrump(s)}
+                      title={t.suits[s]}
+                      aria-label={t.suits[s]}
+                    >
+                      <span className={`suit ${isRed(s) ? "text-brick" : "text-ink"}`}>{SUIT_SYMBOL[s]}</span>
+                      {count > 0 && <span className="count">{num(count)}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex justify-center gap-3 mt-1.5">
                 {SUITS.map((s) => (
-                  <button
-                    key={s}
-                    className="btn flex-col !py-3 bg-parchment text-ink hover:brightness-95 border border-gold"
-                    onClick={() => onChooseTrump(s)}
-                  >
-                    <span className={`suit text-3xl leading-none ${isRed(s) ? "text-brick" : ""}`}>
-                      {SUIT_SYMBOL[s]}
-                    </span>
-                    <span className="text-xs">{t.suits[s]}</span>
-                  </button>
+                  <span key={s} className="w-[72px] text-center text-[11px] text-sand">
+                    {t.suits[s]}
+                  </span>
                 ))}
               </div>
             </>
           ) : (
-            <p className="text-lg">{f(t.hakemChoosing, { name: nameOf(view.hakem) })}</p>
+            <>
+              <p className="text-lg mb-4">{f(t.hakemChoosing, { name: nameOf(view.hakem) })}</p>
+              <div className="flex justify-center gap-4" dir="ltr">
+                {SUITS.map((s, i) => (
+                  <span
+                    key={s}
+                    className={`suit suit-wait text-4xl ${isRed(s) ? "text-brick" : "text-parchment"}`}
+                    style={{ animationDelay: `${i * 200}ms` }}
+                  >
+                    {SUIT_SYMBOL[s]}
+                  </span>
+                ))}
+              </div>
+            </>
           )}
         </Overlay>
       )}
