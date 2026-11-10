@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type RefObject, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type CardId, type Suit, SUITS, sortHand } from "@/game/cards";
 import { AUTO_NEXT_HAND_SECONDS, type PlayerView, type TrickPlay, rulesFor, teamOf } from "@/game/engine";
 import { useI18n } from "@/i18n/context";
@@ -46,6 +46,27 @@ function trickOffset(rel: number, n: number): { x: number; y: number } {
   if (rel === 2) return { x: 0, y: -36 };
   return { x: -56, y: 0 };
 }
+
+/** Direction (in px, physical) an opponent's dealt cards fly in from: roughly the table centre. */
+function dealFrom(rel: number, n: number): { x: number; y: number } {
+  if (n === 2) return { x: 0, y: 150 };
+  if (n === 3) return rel === 1 ? { x: -160, y: 130 } : { x: 160, y: 130 };
+  if (rel === 1) return { x: -200, y: 0 };
+  if (rel === 2) return { x: 0, y: 150 };
+  return { x: 200, y: 0 };
+}
+
+type PositionStore = Map<CardId, { x: number; y: number }>;
+
+/** Deterministic confetti pieces (no Math.random in render). */
+const CONFETTI = Array.from({ length: 40 }, (_, i) => ({
+  left: (i * 37 + 11) % 100,
+  size: 6 + (i % 4) * 2,
+  color: ["var(--gold)", "var(--gold-light)", "var(--turquoise)", "var(--parchment)", "#ff8a65"][i % 5],
+  duration: 2.8 + (i % 5) * 0.45,
+  delay: -((i * 7) % 30) / 10,
+  sway: ((i % 7) - 3) * 14,
+}));
 
 function useViewportWidth() {
   const [w, setW] = useState(900);
@@ -113,6 +134,9 @@ export function Table(props: TableProps) {
       : holding
         ? { plays: holding.plays, winner: holding.winner }
         : { plays: [], winner: null };
+  // Only the finished trick is swept away. If the winner leads again right away, the new
+  // card must not inherit the sweep (it used to vanish and then fly in a second time).
+  const sweeping = collecting && view.currentTrick.length === 0;
 
   // Two-step play: first tap selects (raises) a card, second tap / Play button / drag plays it.
   const [selected, setSelected] = useState<CardId | null>(null);
@@ -141,6 +165,46 @@ export function Table(props: TableProps) {
     const id = setTimeout(() => setGotCard(null), 1300);
     return () => clearTimeout(id);
   }, [gotCard]);
+
+  // Deal animation: cards that just arrived in my hand fly in from the table centre.
+  // The key includes the hand number so a fresh deal always counts as all-new cards.
+  const handKey = `${view.handNumber}|${view.hand.join(",")}`;
+  const [seenHandKey, setSeenHandKey] = useState("");
+  const [dealt, setDealt] = useState<CardId[]>([]);
+  if (handKey !== seenHandKey) {
+    setSeenHandKey(handKey);
+    const [prevNumber, prevCards = ""] = seenHandKey.split("|");
+    const before = prevNumber === String(view.handNumber) ? prevCards.split(",") : [];
+    const added = view.hand.filter((c) => !before.includes(c));
+    // During the 2-player draw the single new card has its own highlight instead.
+    if (added.length > 0 && view.phase !== "drawing") setDealt(added);
+  }
+  useEffect(() => {
+    if (dealt.length === 0) return;
+    const id = setTimeout(() => setDealt([]), dealt.length * 45 + 600);
+    return () => clearTimeout(id);
+  }, [dealt]);
+
+  // Trump announcement: when the hakem picks, the suit appears big in the centre, then flies
+  // up to its place in the header.
+  const [seenTrump, setSeenTrump] = useState(view.trump);
+  const [reveal, setReveal] = useState<{ suit: Suit; key: number } | null>(null);
+  if (view.trump !== seenTrump) {
+    setSeenTrump(view.trump);
+    if (view.trump) setReveal({ suit: view.trump, key: view.handNumber });
+  }
+  useEffect(() => {
+    if (!reveal) return;
+    const id = setTimeout(() => setReveal(null), 1800);
+    return () => clearTimeout(id);
+  }, [reveal]);
+
+  // Layout positions of my hand cards, so they can glide (FLIP) when the hand re-flows.
+  const positions = useRef<PositionStore>(new Map());
+  useEffect(() => {
+    const store = positions.current;
+    for (const card of [...store.keys()]) if (!view.hand.includes(card)) store.delete(card);
+  }, [view.hand]);
 
   // Between hands: visible countdown to the automatic next deal.
   const [countdown, setCountdown] = useState(AUTO_NEXT_HAND_SECONDS);
@@ -185,6 +249,11 @@ export function Table(props: TableProps) {
   };
 
   const hand = useMemo(() => sortHand(view.hand, view.trump), [view.hand, view.trump]);
+  // Stagger order of the cards being dealt right now (left to right in the sorted hand).
+  const dealtOrder = new Map(hand.filter((c) => dealt.includes(c)).map((c, i) => [c, i]));
+  const isKot =
+    (view.phase === "handEnd" || view.phase === "gameEnd") &&
+    (view.lastHand?.kind === "kot" || view.lastHand?.kind === "hakemKot");
   // Phones: big hands go on two rows so each card stays large and easy to tap.
   const twoRows = vw < 640 && hand.length > 7;
   const rows: CardId[][] = twoRows
@@ -220,7 +289,7 @@ export function Table(props: TableProps) {
   const otherSeat = n === 2 ? 1 - me : null;
 
   return (
-    <div className="relative flex flex-col h-dvh w-full overflow-hidden" dir={dir}>
+    <div className={`relative flex flex-col h-dvh w-full overflow-hidden ${isKot ? "shake" : ""}`} dir={dir}>
       {/* Top bar: scores and trump */}
       <header className="flex items-center justify-between gap-2 px-3 pt-[max(0.5rem,env(safe-area-inset-top))] pb-1 text-sm">
         <button className="btn btn-ghost !py-1.5 !px-3 text-xs" onClick={onLeave}>
@@ -263,16 +332,25 @@ export function Table(props: TableProps) {
       <main className="relative flex-1 min-h-0">
         {/* table medallion */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-[0.12]">
-          <Rosette size={Math.min(vw * 0.7, 420)} />
+          <div className="spin-slow">
+            <Rosette size={Math.min(vw * 0.7, 420)} />
+          </div>
         </div>
 
         {opponents.map((seat, i) => (
-          <Opponent key={seat} seat={seat} view={view} className={seatPosition(i + 1, n)} name={nameOf(seat)} />
+          <Opponent
+            key={seat}
+            seat={seat}
+            view={view}
+            className={seatPosition(i + 1, n)}
+            name={nameOf(seat)}
+            from={dealFrom(i + 1, n)}
+          />
         ))}
 
         {/* Trick */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-          {shownTrick.plays.map((p) => {
+          {shownTrick.plays.map((p, i) => {
             const rel = (p.seat - me + n) % n;
             const off = trickOffset(rel, n);
             const won = shownTrick.winner === p.seat;
@@ -283,21 +361,27 @@ export function Table(props: TableProps) {
             const vars = {
               "--fx": `${sx * off.x * 7}px`,
               "--fy": `${off.y * 7}px`,
+              "--px": `${sx * off.x}px`,
+              "--py": `${off.y}px`,
               "--tx": `${sx * winnerOff.x * 7}px`,
               "--ty": `${winnerOff.y * 7}px`,
             } as React.CSSProperties;
+            // Ruffing: a trump played on a non-trump lead lands with a slam and a gold shockwave.
+            const ledSuit = shownTrick.plays[0].card[0];
+            const isCut = i > 0 && view.trump !== null && p.card[0] === view.trump && ledSuit !== view.trump;
             return (
               <div
                 key={p.card}
-                className={`absolute trick-card ${collecting ? "collect" : ""}`}
+                className={`absolute trick-card ${isCut ? "cut" : ""} ${sweeping ? "collect" : ""}`}
                 style={{
                   ...vars,
                   transform: `translate(calc(-50% + ${sx * off.x}px), calc(-50% + ${off.y}px)) ${won ? "scale(1.12)" : ""}`,
                   zIndex: won ? 5 : 1,
                   transition: "transform 250ms ease",
-                  filter: won && !collecting ? "drop-shadow(0 0 14px rgba(212,166,56,0.8))" : undefined,
+                  filter: won && !sweeping ? "drop-shadow(0 0 14px rgba(212,166,56,0.8))" : undefined,
                 }}
               >
+                {isCut && <span className="shockwave" aria-hidden />}
                 <Card
                   card={p.card}
                   width={Math.min(68, cardW)}
@@ -437,6 +521,8 @@ export function Table(props: TableProps) {
                       selected={isSel}
                       multi={discarding}
                       fresh={card === gotCard}
+                      dealtIndex={dealtOrder.get(card) ?? null}
+                      positions={positions}
                       dim={(isMyTurn && !selectable) || (discarding && myDiscards === 0)}
                       draggable={!discarding && selectable}
                       onTap={() => tap(card)}
@@ -541,9 +627,12 @@ export function Table(props: TableProps) {
                 : f(t.handWon, { name: nameOf(view.lastHand.winnerTeam) })}
             </h2>
           )}
-          {view.lastHand.kind === "kot" && <p className="gold-text text-3xl font-black mb-1">{t.kot}</p>}
-          {view.lastHand.kind === "hakemKot" && (
-            <p className="gold-text text-3xl font-black mb-1">{t.hakemKot}</p>
+          {isKot && (
+            <div className="kot-slam">
+              <p className="gold-text text-4xl font-black mb-1">
+                {view.lastHand.kind === "hakemKot" ? t.hakemKot : t.kot}
+              </p>
+            </div>
           )}
           <p className="text-sand mb-1">
             {view.lastHand.tricks.map((tr, i) => `${teamLabel(i)}: ${num(tr)}`).join(" · ")}
@@ -566,10 +655,38 @@ export function Table(props: TableProps) {
 
       {/* Game over: winner modal, stays until someone chooses to go back */}
       {view.phase === "gameEnd" && (
-        <Overlay>
+        <Overlay
+          backdrop={
+            <div className="confetti" aria-hidden>
+              {CONFETTI.map((c, i) => (
+                <span
+                  key={i}
+                  style={
+                    {
+                      left: `${c.left}%`,
+                      width: c.size,
+                      height: c.size * 1.6,
+                      background: c.color,
+                      animationDuration: `${c.duration}s`,
+                      animationDelay: `${c.delay}s`,
+                      "--sway": `${c.sway}px`,
+                    } as React.CSSProperties
+                  }
+                />
+              ))}
+            </div>
+          }
+        >
           <Rosette size={56} className="mx-auto mb-2" />
           <p className="text-sand text-sm">{t.champion}</p>
           <h2 className="gold-text text-4xl font-black my-2 leading-tight">{teamLabel(winnerTeam)}</h2>
+          {isKot && view.lastHand && (
+            <div className="kot-slam">
+              <p className="text-gold-light text-xl font-black">
+                {view.lastHand.kind === "hakemKot" ? t.hakemKot : t.kot}
+              </p>
+            </div>
+          )}
           <div className="flex gap-3 justify-center text-sm my-4">
             {view.scores.map((s, i) => (
               <span key={i} className="panel !rounded-full px-3 py-1">
@@ -586,6 +703,28 @@ export function Table(props: TableProps) {
             </button>
           </div>
         </Overlay>
+      )}
+
+      {/* Trump announcement (purely decorative, never blocks input) */}
+      {reveal && (
+        <div
+          key={reveal.key}
+          className="trump-reveal"
+          style={
+            {
+              "--tx": `${(dir === "rtl" ? -1 : 1) * Math.max(0, vw / 2 - 70)}px`,
+              "--ty": "-42vh",
+            } as React.CSSProperties
+          }
+          aria-hidden
+        >
+          <div className="trump-medal">
+            <span className={`suit ${isRed(reveal.suit) ? "text-brick" : "text-ink"}`}>
+              {SUIT_SYMBOL[reveal.suit]}
+            </span>
+          </div>
+          <div className="trump-label">{f(t.trumpIs, { suit: t.suits[reveal.suit] })}</div>
+        </div>
       )}
     </div>
   );
@@ -604,6 +743,8 @@ function HandCard({
   selected,
   multi,
   fresh,
+  dealtIndex,
+  positions,
   dim,
   draggable,
   onTap,
@@ -619,6 +760,10 @@ function HandCard({
   multi: boolean;
   /** Just arrived in the hand (draw phase): glows for a moment. */
   fresh: boolean;
+  /** Being dealt right now: its place in the stagger, or null. */
+  dealtIndex: number | null;
+  /** Shared store of layout positions, used to glide cards when the hand re-flows. */
+  positions: RefObject<PositionStore>;
   dim: boolean;
   draggable: boolean;
   onTap: () => void;
@@ -626,6 +771,35 @@ function HandCard({
 }) {
   const [drag, setDrag] = useState<{ dx: number; dy: number } | null>(null);
   const start = useRef<{ x: number; y: number; moved: boolean; id: number } | null>(null);
+  const elRef = useRef<HTMLDivElement>(null);
+  const glide = useRef<Animation | null>(null);
+  const restTransform = selected && !multi ? "rotate(0deg)" : `rotate(${angle}deg)`;
+  const dragging = drag !== null;
+  const dealing = dealtIndex !== null;
+
+  // FLIP: when the hand re-flows (a card was played, added, or re-sorted), glide from the old
+  // layout position to the new one instead of jumping. Positions are layout offsets (not
+  // bounding boxes), so rotation, selection lift and drag transforms don't disturb them.
+  useLayoutEffect(() => {
+    const el = elRef.current;
+    const row = el?.offsetParent as HTMLElement | null;
+    if (!el || !row) return;
+    const x = el.offsetLeft + row.offsetLeft;
+    const y = el.offsetTop + row.offsetTop;
+    const store = positions.current;
+    const prev = store.get(card);
+    store.set(card, { x, y });
+    if (!prev || dealing || dragging) return;
+    const dx = prev.x - x;
+    const dy = prev.y - y;
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    glide.current?.cancel();
+    glide.current = el.animate(
+      [{ transform: `translate(${dx}px, ${dy}px) ${restTransform}` }, { transform: restTransform }],
+      { duration: 260, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
+    );
+  });
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (!legal) return;
@@ -653,12 +827,13 @@ function HandCard({
     setDrag(null);
   };
 
-  const restTransform = selected && !multi ? "rotate(0deg)" : `rotate(${angle}deg)`;
   return (
     <div
-      className={`hand-card relative ${selected && !multi ? "selected" : ""}`}
+      ref={elRef}
+      className={`hand-card relative ${selected && !multi ? "selected" : ""} ${dealing ? "dealt" : ""}`}
       style={{
         marginLeft,
+        animationDelay: dealing ? `${dealtIndex * 45}ms` : undefined,
         touchAction: "none",
         zIndex: drag ? 50 : selected && !multi ? 10 : undefined,
         transform: drag
@@ -692,9 +867,10 @@ function CenterPanel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Overlay({ children }: { children: React.ReactNode }) {
+function Overlay({ children, backdrop }: { children: React.ReactNode; backdrop?: React.ReactNode }) {
   return (
     <div className="absolute inset-0 z-20 flex items-center justify-center bg-lapis-dark/60 p-4">
+      {backdrop}
       <div className="panel panel-ornate pop px-6 py-5 text-center max-w-sm w-full">{children}</div>
     </div>
   );
@@ -703,6 +879,13 @@ function Overlay({ children }: { children: React.ReactNode }) {
 function SeatBadge({ seat, view, name }: { seat: number; view: PlayerView; name: string }) {
   const { t, n: num } = useI18n();
   const won = view.tricks[teamOf(seat, view.config.players)] ?? 0;
+  // When this seat's side takes a trick, the counter pops and a "+1" floats up.
+  const [seenWon, setSeenWon] = useState(won);
+  const [bump, setBump] = useState(0);
+  if (won !== seenWon) {
+    setSeenWon(won);
+    if (won > seenWon) setBump((b) => b + 1);
+  }
   const isTurn =
     (view.phase === "playing" && view.turn === seat) ||
     (view.phase === "drawing" && view.draw?.turn === seat) ||
@@ -724,11 +907,19 @@ function SeatBadge({ seat, view, name }: { seat: number; view: PlayerView; name:
       <div className="text-center leading-tight mt-1 flex flex-col items-center gap-0.5">
         <div className="font-bold truncate max-w-20">{name}</div>
         {view.phase !== "lobby" && (
-          <span
-            className="min-w-6 px-1.5 rounded-full bg-black/35 border border-gold/40 text-gold-light font-black text-[11px] leading-5"
-            title={t.wonTricks}
-          >
-            {num(won)}
+          <span className="relative">
+            <span
+              key={bump}
+              className={`inline-block min-w-6 px-1.5 rounded-full bg-black/35 border border-gold/40 text-gold-light font-black text-[11px] leading-5 ${bump > 0 ? "count-bump" : ""}`}
+              title={t.wonTricks}
+            >
+              {num(won)}
+            </span>
+            {bump > 0 && (
+              <span key={`plus-${bump}`} className="count-plus" dir="ltr" aria-hidden>
+                +{num(1)}
+              </span>
+            )}
           </span>
         )}
       </div>
@@ -741,19 +932,42 @@ function Opponent({
   view,
   className,
   name,
+  from,
 }: {
   seat: number;
   view: PlayerView;
   className: string;
   name: string;
+  /** Where dealt cards fly in from, relative to this seat (px). */
+  from: { x: number; y: number };
 }) {
-  const count = view.handCounts[seat] ?? 0;
+  const count = Math.min(view.handCounts[seat] ?? 0, 17);
+  // Card backs are keyed by index, so each newly added one plays its deal animation once on
+  // mount. `batchStart` staggers only the cards of the current batch.
+  const [seenCount, setSeenCount] = useState(0);
+  const [batchStart, setBatchStart] = useState(0);
+  if (count !== seenCount) {
+    setSeenCount(count);
+    if (count > seenCount) setBatchStart(seenCount);
+  }
   return (
     <div className={`absolute ${className} flex flex-col items-center gap-1`}>
       <SeatBadge seat={seat} view={view} name={name} />
       <div className="flex" dir="ltr">
-        {Array.from({ length: Math.min(count, 17) }, (_, i) => (
-          <Card key={i} width={24} className="!shadow-none" style={{ marginLeft: i ? -15 : 0 }} />
+        {Array.from({ length: count }, (_, i) => (
+          <Card
+            key={i}
+            width={24}
+            className="opp-card !shadow-none"
+            style={
+              {
+                marginLeft: i ? -15 : 0,
+                animationDelay: `${Math.max(0, i - batchStart) * 40}ms`,
+                "--dx": `${from.x}px`,
+                "--dy": `${from.y}px`,
+              } as React.CSSProperties
+            }
+          />
         ))}
       </div>
     </div>
