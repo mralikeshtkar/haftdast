@@ -102,15 +102,17 @@ body {
       0 0 0 2px rgb(212 166 56 / 0.9),
       0 8px 18px rgb(0 0 0 / 0.4);
   }
-  .card.legal:hover,
+  /* Hover is only a faint nudge, and only for a real mouse. On touch screens :hover sticks
+     to whatever card slides under the finger after a play, which looked like a selection. */
+  @media (hover: hover) and (pointer: fine) {
+    .card.legal:hover {
+      transform: translateY(-5px);
+      z-index: 3;
+    }
+  }
   .card.legal:focus-visible {
-    transform: translateY(-12px) scale(1.03);
-    box-shadow:
-      0 0 0 2px var(--gold-light),
-      0 0 24px rgb(212 166 56 / 0.45),
-      0 16px 28px rgb(0 0 0 / 0.45);
-    z-index: 3;
-    outline: none;
+    outline: 2px solid var(--gold-light);
+    outline-offset: 2px;
   }
   .card.selected,
   .card.selected:hover {

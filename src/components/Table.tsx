@@ -127,7 +127,9 @@ export function Table(props: TableProps) {
   }
 
   // After each of my draw decisions, the card I actually received glows in my hand for a moment.
-  const drawKey = view.draw?.lastKept ? `${view.draw.lastKept}-${view.draw.stock}` : null;
+  // Keyed on the card itself (unique within a hand), not on the stock size: the stock also
+  // shrinks on the opponent's turn, which used to replay the animation a second time.
+  const drawKey = view.draw?.lastKept ? `${view.handNumber}-${view.draw.lastKept}` : null;
   const [seenDrawKey, setSeenDrawKey] = useState(drawKey);
   const [gotCard, setGotCard] = useState<CardId | null>(null);
   if (drawKey !== seenDrawKey) {
