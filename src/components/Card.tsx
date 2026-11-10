@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { type CardId, type Suit, rankOf, suitOf } from "@/game/cards";
 
 export const SUIT_SYMBOL: Record<Suit, string> = { S: "♠", H: "♥", D: "♦", C: "♣" };
@@ -8,13 +8,24 @@ const SUIT_NAME: Record<Suit, string> = { S: "spades", H: "hearts", D: "diamonds
 const RANK_NAME: Record<number, string> = { 11: "jack", 12: "queen", 13: "king", 14: "ace" };
 const RANK_LABEL: Record<number, string> = { 11: "J", 12: "Q", 13: "K", 14: "A" };
 
-/** Card face artwork: public-domain vector-playing-cards, see public/cards/LICENSE.txt */
+/**
+ * Card artwork is served with a one-year cache lifetime, so the URL carries a version:
+ * bump it whenever a file under public/cards changes.
+ */
+const CARD_ASSET_VERSION = "2";
+
+/**
+ * Card face artwork: public-domain vector-playing-cards, see public/cards/LICENSE.txt.
+ * Number cards and aces are tiny SVGs; the jack/queen/king SVGs are huge (up to 1 MB),
+ * so those are shipped as WebP rendered by scripts/gen-face-webp.mjs.
+ */
 export function cardImage(card: CardId): string {
   const r = rankOf(card);
-  return `/cards/${RANK_NAME[r] ?? r}_of_${SUIT_NAME[suitOf(card)]}.svg`;
+  const ext = r >= 11 && r <= 13 ? "webp" : "svg";
+  return `/cards/${RANK_NAME[r] ?? r}_of_${SUIT_NAME[suitOf(card)]}.${ext}?v=${CARD_ASSET_VERSION}`;
 }
 
-export const CARD_BACK = "/cards/back.svg";
+export const CARD_BACK = `/cards/back.svg?v=${CARD_ASSET_VERSION}`;
 
 export function rankLabel(card: CardId): string {
   return RANK_LABEL[rankOf(card)] ?? String(rankOf(card));
@@ -27,13 +38,15 @@ export function isRed(suit: Suit) {
 const RETRY_DELAYS_MS = [600, 1500, 3000, 6000];
 
 /**
- * <img> that retries when the network drops the request (common on mobile data
- * through a tunnel). Browsers never retry a failed image on their own.
+ * <img> that (1) retries when the network drops the request (common on mobile data;
+ * browsers never retry a failed image on their own) and (2) shows `fallback` until the
+ * picture has actually arrived, so a card is readable from the first frame on a slow link.
  */
-function ResilientImg({ src, alt }: { src: string; alt: string }) {
+function ResilientImg({ src, fallback }: { src: string; fallback?: ReactNode }) {
   const [attempt, setAttempt] = useState(0);
   const [currentSrc, setCurrentSrc] = useState(src);
   const [prevSrc, setPrevSrc] = useState(src);
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   if (src !== prevSrc) {
@@ -59,7 +72,26 @@ function ResilientImg({ src, alt }: { src: string; alt: string }) {
     }, RETRY_DELAYS_MS[attempt]);
   };
 
-  return <img src={currentSrc} alt={alt} draggable={false} onError={onError} />;
+  const loaded = loadedSrc === src;
+  return (
+    <>
+      {!loaded && fallback}
+      <img
+        // An image served from cache can be complete before `load` is observed.
+        ref={(img) => {
+          if (img && img.complete && img.naturalWidth > 0 && img.getAttribute("src") === src) {
+            setLoadedSrc((prev) => (prev === src ? prev : src));
+          }
+        }}
+        src={currentSrc || undefined}
+        alt=""
+        draggable={false}
+        onLoad={() => setLoadedSrc(src)}
+        onError={onError}
+        style={{ opacity: loaded ? 1 : 0 }}
+      />
+    </>
+  );
 }
 
 interface CardProps {
@@ -92,11 +124,13 @@ export function Card({
   if (!card) {
     return (
       <div className={`card back ${className}`} style={{ ...vars, ...style }} aria-hidden>
-        <ResilientImg src={CARD_BACK} alt="" />
+        <ResilientImg src={CARD_BACK} />
       </div>
     );
   }
-  const label = `${rankLabel(card)}${SUIT_SYMBOL[suitOf(card)]}`;
+  const suit = suitOf(card);
+  const rank = rankLabel(card);
+  const label = `${rank}${SUIT_SYMBOL[suit]}`;
   return (
     <button
       type="button"
@@ -108,7 +142,19 @@ export function Card({
       aria-label={label}
       title={title ?? label}
     >
-      <ResilientImg src={cardImage(card)} alt={label} />
+      <ResilientImg
+        src={cardImage(card)}
+        fallback={
+          // Plain-text face shown until the artwork arrives.
+          <span className={`card-fallback ${isRed(suit) ? "red" : ""}`} aria-hidden>
+            <span className="idx">
+              <span>{rank}</span>
+              <span className="suit">{SUIT_SYMBOL[suit]}</span>
+            </span>
+            <span className="suit big">{SUIT_SYMBOL[suit]}</span>
+          </span>
+        }
+      />
     </button>
   );
 }

@@ -655,3 +655,43 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- Card artwork loading ---------- */
+@layer components {
+  /* No fade here on purpose: the picture must show the instant it has loaded. */
+  .card img {
+    position: relative;
+  }
+  /* Text face shown until the picture arrives (slow connections). */
+  .card-fallback {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: var(--ink);
+    font-family: var(--font-inter), system-ui, sans-serif;
+    font-weight: 800;
+    line-height: 1;
+    pointer-events: none;
+  }
+  .card-fallback.red {
+    color: #c62828;
+  }
+  .card-fallback .idx {
+    position: absolute;
+    top: calc(var(--card-w, 56px) * 0.06);
+    left: calc(var(--card-w, 56px) * 0.07);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: calc(var(--card-w, 56px) * 0.02);
+    font-size: calc(var(--card-w, 56px) * 0.27);
+  }
+  .card-fallback .idx .suit {
+    font-size: calc(var(--card-w, 56px) * 0.24);
+  }
+  .card-fallback .big {
+    font-size: calc(var(--card-w, 56px) * 0.62);
+    opacity: 0.9;
+  }
+}

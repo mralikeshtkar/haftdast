@@ -30,7 +30,7 @@ Other scripts: `npm run simulate` (plays 90 bot games across all variants and ch
 | `server.ts` | Custom Node server: Next request handler + Socket.IO on one port |
 | `src/i18n/` | `fa` / `en` dictionaries; `/[locale]` routing; `src/proxy.ts` redirects `/` by cookie or Accept-Language |
 | `src/app/manifest.ts`, `public/sw.js` | PWA manifest and service worker (bot games work offline; cards and assets are cached) |
-| `public/cards/` | Card faces (public domain, via hayeah/playing-cards-assets) + custom girih card back |
+| `public/cards/` | Card faces (public domain, via hayeah/playing-cards-assets) + custom girih card back. Jack/queen/king are WebP renders of the heavy SVGs in `assets/card-faces/` (`npm run faces`); cards are cached for a year, so bump `CARD_ASSET_VERSION` in `Card.tsx` when artwork changes |
 | `src/fonts/` | YekanBakh (Persian UI); Inter is loaded from Google Fonts for English |
 
 ## قوانین پیاده‌شده / Rules

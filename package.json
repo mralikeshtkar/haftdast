@@ -11,7 +11,8 @@
     "simulate": "tsx scripts/simulate.ts",
     "icons": "node scripts/gen-icons.mjs",
     "smoke": "tsx scripts/online-smoke.ts",
-    "online": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/play-online.ps1"
+    "online": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/play-online.ps1",
+    "faces": "node scripts/gen-face-webp.mjs"
   },
   "dependencies": {
     "cross-env": "^10.1.0",
@@ -29,6 +30,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.5",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4",
     "typescript": "^5"
   },

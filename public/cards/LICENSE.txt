@@ -1,2 +1,3 @@
 Card faces: vector-playing-cards (public domain), via https://github.com/hayeah/playing-cards-assets (MIT).
+Jack/queen/king are WebP renders of the original SVGs kept in assets/card-faces (scripts/gen-face-webp.mjs).
 Card back and ornaments: HaftDast project.

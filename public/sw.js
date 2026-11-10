@@ -3,7 +3,7 @@
  * - Pages are network-first with a cache fallback, so bot games keep working offline.
  * - Socket.IO traffic is never intercepted.
  */
-const VERSION = "v1";
+const VERSION = "v2";
 const STATIC_CACHE = `haftdast-static-${VERSION}`;
 const PAGE_CACHE = `haftdast-pages-${VERSION}`;
 const PRECACHE = [
@@ -13,7 +13,7 @@ const PRECACHE = [
   "/en/play",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
-  "/cards/back.svg",
+  "/cards/back.svg?v=2",
   "/ornament/palmette.svg",
 ];
 
